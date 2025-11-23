@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Waddle Box on Tiny Planet</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { mono: ['"Courier New"', 'monospace'] },
+                    boxShadow: {
+                        'hard': '2px 2px 0 rgba(0,0,0,0.5)',
+                        'hard-lg': '4px 4px 0 black',
+                        'hard-xl': '10px 10px 0 black',
+                        'btn': '3px 3px 0px black',
+                        'btn-active': '1px 1px 0px black',
+                        'play': '5px 5px 0px black',
+                        'play-active': '2px 2px 0px black',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Import Map -->
+    <script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+    "firebase/app": "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js",
+    "firebase/firestore": "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js",
+    "firebase/": "https://aistudiocdn.com/firebase@^12.6.0/"
+  }
+}
+</script>
+
+    <!-- Protocol Check for ES Modules -->
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            if (window.location.protocol === 'file:') {
+                document.getElementById('file-protocol-warning').classList.remove('hidden');
+                document.getElementById('start-screen').style.display = 'none';
+            }
+        });
+    </script>
+
+    <!-- Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-R8CDWJX8K3"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-R8CDWJX8K3');
+    </script>
+</head>
+<body class="m-0 overflow-hidden bg-[#1a1a2e] font-mono select-none touch-none text-white">
+
+    <!-- PROTOCOL WARNING OVERLAY -->
+    <div id="file-protocol-warning" class="hidden fixed inset-0 z-[9999] bg-[#1a1a2e] flex flex-col items-center justify-center p-8 text-center">
+        <h1 class="text-[#FF4444] text-4xl font-bold mb-4">⚠️ SETUP REQUIRED</h1>
+        <div class="bg-black border-2 border-white p-6 rounded max-w-2xl shadow-hard-lg">
+            <p class="text-lg mb-4 text-left">
+                You are running this via <code>file://</code>. Modern JavaScript Modules require a server.
+            </p>
+            <div class="bg-[#222] p-4 rounded text-left mb-4 border border-gray-600">
+                <p class="text-[#FFD700] font-bold mb-2">Will this work on GitHub Pages?</p>
+                <p class="text-white"><strong>YES!</strong> GitHub Pages is a server. You can push this code as-is and it will work.</p>
+            </div>
+            <p class="text-white mb-2 text-left">To test locally, you must start a local server:</p>
+            <div class="text-left bg-[#111] p-4 rounded text-sm font-mono border border-gray-700">
+                <p class="mb-2 text-[#aaa]">VS Code Users:</p>
+                <p class="text-white">Right-click <code>index.html</code> &rarr; <strong>"Open with Live Server"</strong>.</p>
+                
+                <p class="mt-4 mb-2 text-[#aaa]">Python Users:</p>
+                <code class="block bg-black p-2 text-green-400">python3 -m http.server</code>
+            </div>
+            <button onclick="window.location.reload()" class="mt-6 bg-[#ddd] text-black border-2 border-black font-bold py-2 px-6 shadow-btn active:translate-x-[1px] active:translate-y-[1px] cursor-pointer">
+                I've Started the Server (Reload)
+            </button>
+        </div>
+    </div>
+
+    <!-- HUD LAYER -->
+    <div id="ui-layer" class="absolute inset-0 pointer-events-none flex flex-col justify-between p-5 box-border z-10">
+        <!-- Top Bar -->
+        <div id="top-bar" class="flex justify-between w-full text-base font-bold drop-shadow-[3px_3px_0_#000]">
+            <div class="bg-black/60 px-3 py-2 rounded-lg border-2 border-black shadow-hard">TOTAL: <span id="score-total">0</span></div>
+            <div class="bg-black/60 px-3 py-2 rounded-lg border-2 border-black shadow-hard">LVL: <span id="level-num">1</span></div>
+            <div class="bg-black/60 px-3 py-2 rounded-lg border-2 border-black shadow-hard text-[#FFD700]"><span id="score-level">0</span>/20</div>
+        </div>
+
+        <!-- Power Up UI -->
+        <div id="power-ui" class="self-center text-center hidden mb-[60px]">
+            <div id="power-text" class="text-[#00FFFF] text-2xl font-bold drop-shadow-[0_0_10px_#00FFFF] mb-1 uppercase animate-pulse">POWER UP!</div>
+            <div class="w-[200px] h-[15px] bg-black/50 border-2 border-white rounded-[10px] overflow-hidden shadow-hard-lg mx-auto">
+                <div id="power-bar-fill" class="w-full h-full bg-[#00FFFF] origin-left"></div>
+            </div>
+        </div>
+
+        <!-- Footer Controls -->
+        <div id="music-note" class="absolute bottom-5 right-5 text-white opacity-50 text-xs pointer-events-auto cursor-pointer z-[101]">Music: ON</div>
+        <div id="mobile-hint" class="hidden lg:hidden absolute bottom-[50px] w-full text-center text-white/50 text-sm font-bold pointer-events-none drop-shadow-[1px_1px_0_#000]">&larr; HOLD TO STEER &rarr;<br>TAP BOTH TO JUMP</div>
+    </div>
+
+    <!-- TRANSITION SCREEN -->
+    <div id="transition-screen" class="hidden absolute inset-0 bg-black/85 flex flex-col justify-center items-center text-white pointer-events-none backdrop-blur-sm z-[90]">
+        <div id="trans-title" class="text-[40px] text-[#FFD700] drop-shadow-[4px_4px_0_#000] mb-5 font-bold text-center">GET READY</div>
+        <div id="trans-msg" class="text-lg max-w-[600px] text-center mb-[30px] leading-relaxed bg-black p-5 border-2 border-white rounded-[10px]">
+            Auto-Run Enabled!<br>
+            1. Collect 20 Gold Coins.<br>
+            2. Avoid Red Slimes (or jump over them!)<br>
+            3. Eat Blue Pills to chase them back!
+        </div>
+        <div id="countdown" class="text-[100px] font-bold drop-shadow-[5px_5px_0_#000] text-[#FFD700]">3</div>
+    </div>
+
+    <!-- START SCREEN -->
+    <div id="start-screen" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white border-4 border-black shadow-hard-xl p-8 text-center pointer-events-auto w-[90%] max-w-[500px] rounded z-[100] text-black block">
+        <h1 class="m-0 mb-2.5 uppercase text-4xl leading-none drop-shadow-[2px_2px_0_#ccc]">Waddle Box<br><small class="text-base text-[#666]">on Tiny Planet</small></h1>
+        <button id="btn-play" class="bg-[#FFD700] border-[3px] border-black font-inherit text-2xl font-bold py-4 px-10 cursor-pointer mt-5 shadow-play inline-block active:translate-x-[2px] active:translate-y-[2px] active:shadow-play-active">PLAY GAME</button>
+        <div class="mt-5">
+            <button id="btn-lb-show" class="bg-[#ddd] border-2 border-black font-bold cursor-pointer py-2 px-4 shadow-btn active:translate-x-[1px] active:translate-y-[1px] active:shadow-btn-active">LEADERBOARD</button>
+        </div>
+        <small class="block mt-4 text-[#aaa]">Desktop: WASD to Move<br>Mobile: Hold sides to Steer</small>
+    </div>
+
+    <!-- HIGHSCORE OVERLAY -->
+    <div id="highscore-overlay" class="hidden absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white border-4 border-black shadow-hard-xl p-8 text-center pointer-events-auto w-[90%] max-w-[500px] rounded z-[150] text-black">
+        <h3 class="text-xl font-bold mb-2">TOP PLAYERS</h3>
+        <div id="hs-list" class="mt-2.5 max-h-[250px] overflow-y-auto text-left border-2 border-[#ddd] p-2.5 text-sm bg-[#f9f9f9]">Loading...</div>
+        <button id="btn-lb-close" class="mt-4 bg-[#ddd] border-2 border-black font-bold cursor-pointer py-2 px-4 shadow-btn active:translate-x-[1px] active:translate-y-[1px] active:shadow-btn-active">CLOSE</button>
+    </div>
+
+    <!-- GAME OVER OVERLAY -->
+    <div id="game-over" class="hidden absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white border-4 border-black shadow-hard-xl p-8 text-center pointer-events-auto w-[90%] max-w-[500px] rounded z-[100] text-black">
+        <h1 id="go-title" class="text-[#F44336] text-4xl font-bold uppercase mb-2">Game Over</h1>
+        <p id="go-msg" class="text-lg mb-4">Result</p>
+        
+        <div id="submit-form">
+            <p class="mb-1 text-sm">Submit your score!</p>
+            <div class="flex mt-4 justify-center gap-2.5 flex-wrap">
+                <input type="text" id="player-name" placeholder="YOUR NAME" maxlength="10" class="font-inherit p-2.5 border-2 border-black font-bold uppercase w-[160px] text-base">
+                <button id="btn-submit" class="bg-[#ddd] border-2 border-black font-bold cursor-pointer py-2 px-4 shadow-btn active:translate-x-[1px] active:translate-y-[1px] active:shadow-btn-active">SUBMIT</button>
+            </div>
+        </div>
+
+        <div id="leaderboard-display" class="hidden">
+            <h3 class="text-xl font-bold mb-2">TOP PLAYERS</h3>
+            <div id="leaderboard-ui" class="mt-2.5 max-h-[250px] overflow-y-auto text-left border-2 border-[#ddd] p-2.5 text-sm bg-[#f9f9f9]">Loading...</div>
+        </div>
+
+        <div class="mt-8">
+            <button id="btn-replay" class="bg-[#FFD700] border-[3px] border-black font-inherit text-2xl font-bold py-4 px-10 cursor-pointer shadow-play inline-block active:translate-x-[2px] active:translate-y-[2px] active:shadow-play-active">PLAY AGAIN</button>
+        </div>
+    </div>
+
+    <!-- MAIN SCRIPT -->
+    <script type="module" src="./js/main.js"></script>
+</body>
+</html>
