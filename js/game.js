@@ -86,7 +86,7 @@ export function gameOver() {
     state.gameState = "LOST";
     const finalTotalScore = state.totalScore;
     
-    document.getElementById('game-over').style.display = 'block';
+    document.getElementById('game-over').style.display = 'flex';
     document.getElementById('go-title').innerText = "GAME OVER";
     document.getElementById('go-msg').innerText = "You reached Level " + state.currentLevel + "\nTotal Score: " + finalTotalScore;
     
@@ -102,14 +102,45 @@ export function gameOver() {
 }
 
 export function startGameLoop() {
+    // Initial Level Build for Title Screen Background
+    buildLevel(1); 
+
     function animate() {
         requestAnimationFrame(animate);
 
         const dt = Math.min(clock.getDelta(), 0.1);
 
-        if(state.gameState !== "PLAYING") {
+        // --- TITLE SCREEN / WAITING ANIMATION ---
+        if(state.gameState === "WAITING") {
+            const time = Date.now() * 0.0001; // Slow rotation
+            const dist = CFG.camDistance + CFG.planetRadius + 10;
+            camera.position.x = Math.sin(time) * dist;
+            camera.position.z = Math.cos(time) * dist;
+            camera.position.y = CFG.planetRadius + 15; // slightly elevated
+            camera.lookAt(0, 0, 0);
+            
+            // Still render the scene
             renderer.render(scene, camera);
             return;
+        }
+
+        // --- PLAYING LOOP ---
+        if(state.gameState !== "PLAYING" && state.gameState !== "COUNTDOWN" && state.gameState !== "LOST") {
+             // Fallback for unexpected states, though we handle waiting above
+            return;
+        }
+
+        // If LOST, we might still want to render the static scene or keep it frozen. 
+        // For now, let's freeze updates but render.
+        if (state.gameState === "LOST") {
+             renderer.render(scene, camera);
+             return;
+        }
+        
+        // Don't update physics during countdown, but do render
+        if (state.gameState === "COUNTDOWN") {
+             renderer.render(scene, camera);
+             return;
         }
 
         const now = Date.now();
